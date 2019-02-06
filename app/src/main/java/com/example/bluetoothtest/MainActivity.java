@@ -1,0 +1,262 @@
+package com.example.bluetoothtest;
+
+import android.Manifest;
+import android.annotation.TargetApi;
+import android.app.Activity;
+import android.app.ListActivity;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothManager;
+import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import android.os.Bundle;
+import android.os.Handler;
+import android.support.v7.app.AlertDialog;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+
+public class MainActivity extends ListActivity {
+    private LeDeviceListAdapter mLeDeviceListAdapter;
+    private BluetoothAdapter mBluetoothAdapter;
+    private boolean mScanning;
+    private Handler mHandler;
+    private static final int REQUEST_ENABLE_BT = 1;
+    // Stops scanning after 10 seconds.
+    private static final long SCAN_PERIOD = 15000;
+    Context context;
+    final int REQUEST_CODE_ASK_MULTIPLE_PERMISSIONS = 50;
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        if (Build.VERSION.SDK_INT >= 23) {
+            // Marshmallow+ Permission APIs
+            fuckMarshMallow();
+        }
+
+        setContentView(R.layout.activity_main);
+
+        mHandler = new Handler();
+        // Use this check to determine whether BLE is supported on the device.  Then you can
+        // selectively disable BLE-related features.
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+            finish();
+        }
+        // Initializes a Bluetooth adapter.  For API level 18 and above, get a reference to
+        // BluetoothAdapter through BluetoothManager.
+        final BluetoothManager bluetoothManager =
+                (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        mBluetoothAdapter = bluetoothManager.getAdapter();
+
+        context =this;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (!mBluetoothAdapter.isEnabled()) {
+            if (!mBluetoothAdapter.isEnabled()) {
+                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+            }
+        }
+        // Initializes list view adapter.
+        mLeDeviceListAdapter = new LeDeviceListAdapter();
+        setListAdapter(mLeDeviceListAdapter);
+        scanLeDevice(true);
+    }
+
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // User chose not to enable Bluetooth.
+        if (requestCode == REQUEST_ENABLE_BT && resultCode == Activity.RESULT_CANCELED) {
+            finish();
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        scanLeDevice(false);
+        mLeDeviceListAdapter.clear();
+    }
+
+
+
+    private void scanLeDevice(final boolean enable) {
+        if (enable) {
+            // Stops scanning after a pre-defined scan period.
+            mHandler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mScanning = false;
+                    mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                }
+            }, SCAN_PERIOD);
+
+            mScanning = true;
+            mBluetoothAdapter.startLeScan(mLeScanCallback);
+        } else {
+            mScanning = false;
+            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+        }
+    }
+
+
+
+    private class LeDeviceListAdapter extends BaseAdapter {
+        private ArrayList<BluetoothDevice> mLeDevices;
+
+        public LeDeviceListAdapter() {
+            super();
+            mLeDevices = new ArrayList<BluetoothDevice>();
+        }
+        public void addDevice(BluetoothDevice device) {
+            if(!mLeDevices.contains(device)) {
+                mLeDevices.add(device);
+            }
+        }
+        public BluetoothDevice getDevice(int position) {
+            return mLeDevices.get(position);
+        }
+        public void clear() {
+            mLeDevices.clear();
+        }
+        @Override
+        public int getCount() {
+            return mLeDevices.size();
+        }
+        @Override
+        public Object getItem(int i) {
+            return mLeDevices.get(i);
+        }
+        @Override
+        public long getItemId(int i) {
+            return i;
+        }
+        @Override
+        public View getView(int i, View view, ViewGroup viewGroup) {
+            LayoutInflater inflater = (LayoutInflater) context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            View root = inflater.inflate(R.layout.activity_bluetooth_demo, null);
+            BluetoothDevice db = mLeDevices.get(i);
+
+            TextView nameDrug = (TextView) root.findViewById(R.id.newB);
+
+            nameDrug.setText(db.getName() + " " + i + " "+ db.getAddress());
+
+            return root;
+        }
+    }
+
+    private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
+        @Override
+        public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                        mLeDeviceListAdapter.addDevice(device);
+                        mLeDeviceListAdapter.notifyDataSetChanged();
+                }
+            });
+        }
+    };
+
+
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        switch (requestCode) {
+            case REQUEST_CODE_ASK_MULTIPLE_PERMISSIONS: {
+                Map<String, Integer> perms = new HashMap<String, Integer>();
+                // Initial
+                perms.put(Manifest.permission.ACCESS_FINE_LOCATION, PackageManager.PERMISSION_GRANTED);
+
+                // Fill with results
+                for (int i = 0; i < permissions.length; i++)
+                    perms.put(permissions[i], grantResults[i]);
+
+                // Check for ACCESS_FINE_LOCATION
+                if (perms.get(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED){
+                    Toast.makeText(MainActivity.this, "All Permission GRANTED !! Thank You :)", Toast.LENGTH_SHORT).show();
+                } else {
+                    // Permission Denied
+                    Toast.makeText(MainActivity.this, "One or More Permissions are DENIED Exiting App :(", Toast.LENGTH_SHORT).show();
+                    finish();
+                }
+            }
+            break;
+            default:
+                super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        }
+    }
+
+
+    @TargetApi(Build.VERSION_CODES.M)
+    private void fuckMarshMallow() {
+        List<String> permissionsNeeded = new ArrayList<String>();
+
+        final List<String> permissionsList = new ArrayList<String>();
+        if (!addPermission(permissionsList, Manifest.permission.ACCESS_FINE_LOCATION))
+            permissionsNeeded.add("Show Location");
+
+        if (permissionsList.size() > 0) {
+            if (permissionsNeeded.size() > 0) {
+                // Need Rationale
+                String message = "App need access to " + permissionsNeeded.get(0);
+
+                for (int i = 1; i < permissionsNeeded.size(); i++)
+                    message = message + ", " + permissionsNeeded.get(i);
+                showMessageOKCancel(message,
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                requestPermissions(permissionsList.toArray(new String[permissionsList.size()]),
+                                        REQUEST_CODE_ASK_MULTIPLE_PERMISSIONS);
+                            }
+                        });
+                return;
+            }
+            requestPermissions(permissionsList.toArray(new String[permissionsList.size()]), REQUEST_CODE_ASK_MULTIPLE_PERMISSIONS);
+            return;
+        }
+        Toast.makeText(MainActivity.this, "No new Permission Required- Launching App .You are Awesome!!", Toast.LENGTH_SHORT).show();
+    }
+
+    private void showMessageOKCancel(String message, DialogInterface.OnClickListener okListener) {
+        new AlertDialog.Builder(MainActivity.this)
+                .setMessage(message)
+                .setPositiveButton("OK", okListener)
+                .setNegativeButton("Cancel", null)
+                .create()
+                .show();
+    }
+
+    @TargetApi(Build.VERSION_CODES.M)
+    private boolean addPermission(List<String> permissionsList, String permission) {
+
+        if (checkSelfPermission(permission) != PackageManager.PERMISSION_GRANTED) {
+            permissionsList.add(permission);
+            // Check for Rationale Option
+            if (!shouldShowRequestPermissionRationale(permission))
+                return false;
+        }
+        return true;
+    }
+
+}

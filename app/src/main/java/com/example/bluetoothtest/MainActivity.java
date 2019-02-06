@@ -6,6 +6,10 @@ import android.app.Activity;
 import android.app.ListActivity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -19,6 +23,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -58,10 +63,8 @@ public class MainActivity extends ListActivity {
         }
         // Initializes a Bluetooth adapter.  For API level 18 and above, get a reference to
         // BluetoothAdapter through BluetoothManager.
-        final BluetoothManager bluetoothManager =
-                (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        final BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = bluetoothManager.getAdapter();
-
         context =this;
     }
 
@@ -97,6 +100,90 @@ public class MainActivity extends ListActivity {
         scanLeDevice(false);
         mLeDeviceListAdapter.clear();
     }
+
+    @Override
+    protected void onListItemClick(ListView l, View v, int position, long id) {
+        final BluetoothDevice device = mLeDeviceListAdapter.getDevice(position);
+        if (device == null) return;
+        Toast.makeText(MainActivity.this, device.getName(), Toast.LENGTH_SHORT).show();
+        device.connectGatt(context, true, myCallBack);
+
+    }
+
+
+
+
+
+    private final BluetoothGattCallback myCallBack = new BluetoothGattCallback() {
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            super.onConnectionStateChange(gatt, status, newState);
+
+            System.out.println(gatt.getDevice().getName());
+
+            if (status == 0) {
+                gatt.connect();
+                //gatt.disconnect();
+            }
+        }
+    };
+
+    @Override
+    public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+        super.onServicesDiscovered(gatt, status);
+    }
+
+    @Override
+    public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+        super.onCharacteristicRead(gatt, characteristic, status);
+    }
+
+    @Override
+    public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+        super.onCharacteristicWrite(gatt, characteristic, status);
+        // Try to send some data to the device
+        characteristic.setValue("test");
+        gatt.writeCharacteristic(characteristic);
+    }
+
+    @Override
+    public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+        super.onCharacteristicChanged(gatt, characteristic);
+
+
+    }
+
+    @Override
+    public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+        super.onDescriptorRead(gatt, descriptor, status);
+    }
+
+    @Override
+    public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+        super.onDescriptorWrite(gatt, descriptor, status);
+
+    }
+
+    @Override
+    public void onReliableWriteCompleted(BluetoothGatt gatt, int status) {
+        super.onReliableWriteCompleted(gatt, status);
+    }
+
+    @Override
+    public void onReadRemoteRssi(BluetoothGatt gatt, int rssi, int status) {
+        super.onReadRemoteRssi(gatt, rssi, status);
+    }
+
+    @Override
+    public void onMtuChanged(BluetoothGatt gatt, int mtu, int status) {
+        super.onMtuChanged(gatt, mtu, status);
+    }
+
+
+
+
+
+
 
 
 
@@ -159,7 +246,7 @@ public class MainActivity extends ListActivity {
 
             TextView nameDrug = (TextView) root.findViewById(R.id.newB);
 
-            nameDrug.setText(db.getName() + " " + i + " "+ db.getAddress());
+            nameDrug.setText( i + "/ " + db.getName() + " "+ db.getAddress() );
 
             return root;
         }

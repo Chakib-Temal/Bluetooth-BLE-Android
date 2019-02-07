@@ -10,6 +10,7 @@ import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
@@ -25,6 +26,8 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
+import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -33,11 +36,16 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static android.content.ContentValues.TAG;
 
 
 public class MainActivity extends ListActivity {
+    private Button sendButton ;
+    private LinearLayout body;
+    private TextView textHold;
+
     private LeDeviceListAdapter mLeDeviceListAdapter;
     private BluetoothAdapter mBluetoothAdapter;
     private boolean mScanning;
@@ -58,6 +66,11 @@ public class MainActivity extends ListActivity {
         }
 
         setContentView(R.layout.activity_main);
+        sendButton = (Button) findViewById(R.id.sendButton);
+        body = (LinearLayout) findViewById(R.id.body);
+        textHold = (TextView) findViewById(R.id.textHold);
+
+        body.removeView(sendButton);
 
         mHandler = new Handler();
         // Use this check to determine whether BLE is supported on the device.  Then you can
@@ -111,6 +124,8 @@ public class MainActivity extends ListActivity {
         if (device == null) return;
         Toast.makeText(MainActivity.this, device.getName(), Toast.LENGTH_SHORT).show();
         mBluetoothGatt = device.connectGatt(context, true, myCallBack);
+
+
 
     }
 
@@ -169,6 +184,7 @@ public class MainActivity extends ListActivity {
     public final static String EXTRA_DATA =
             "com.example.bluetooth.le.EXTRA_DATA";
 
+    List<BluetoothGattService> gattServices  ;
 
 
 
@@ -199,37 +215,38 @@ public class MainActivity extends ListActivity {
                 public void run() {
                     mLeDeviceListAdapter.clear();
                     mLeDeviceListAdapter.notifyDataSetChanged();
+                    body.addView(sendButton, 1);
+                    textHold.setText("You are connected to : " + mBluetoothGatt.getDevice().getName());
                 }
             });
-
-
         }
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             super.onServicesDiscovered(gatt, status);
-            //System.out.println("------------------------------------------onServicesDiscovered");
+            gattServices = gatt.getServices();
+            System.out.println("----TAILLE--------------------" + gatt.getServices().size());
 
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                System.out.println("----TAILLE--------------------" + gatt.getServices().size());
                 for (int i= 0 ; i < gatt.getServices().size(); i++){
                     Log.i(TAG, "onServicesDiscovered: --------------------- : " + i);
                     Log.i(TAG, "onServicesDiscovered: service = " + gatt.getServices().get(i).getUuid());
-
                     for (int j=0 ; j < gatt.getServices().get(i).getCharacteristics().size(); j++){
                         Log.i(TAG, "onServicesDiscovered: characteristic = "+i+"."+j + " :: " + gatt.getServices().get(i).getCharacteristics().get(j).getUuid());
 
-                        String originalString = "560D0F0600F0AA";
-                        byte[] b = hexStringToByteArray(originalString);
+                        if (gatt.getServices().get(i).getUuid().toString().equals("0000fff0-0000-1000-8000-00805f9b34fb")){
 
-                        gatt.getServices().get(i).getCharacteristics().get(j).setValue(b);
-                        mBluetoothGatt.writeCharacteristic(gatt.getServices().get(i).getCharacteristics().get(j));
-                        Log.i(TAG, "onServicesDiscovered: , write bytes?! " + byteArrayToHexString(b));
+                            mBluetoothGatt.setCharacteristicNotification(gattServices.get(2).getCharacteristics().get(1), true);
+                            BluetoothGattDescriptor descriptor = gatt.getServices().get(2).getCharacteristics().get(1).getDescriptor(UUID.fromString(SampleGattAttributes.CLIENT_CHARACTERISTIC_CONFIG));
+                            descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+                            mBluetoothGatt.writeDescriptor(descriptor);
 
-                        //mBluetoothGatt.getServices().get(i).getCharacteristics().get(j).setValue(b);
+                        }
 
                     }
                 }
+
+
 
             } else {
                 Log.w(TAG, "onServicesDiscovered received: " + status);
@@ -262,7 +279,11 @@ public class MainActivity extends ListActivity {
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             super.onCharacteristicChanged(gatt, characteristic);
-            System.out.println("------------------------------------------onCharacteristicChanged");
+
+            byte[] msgreceived = hexStringToByteArray(characteristic.getValue().toString());
+            System.out.println("------------------------------------------onCharacteristicChanged " + msgreceived );
+
+
 
 
         }
@@ -304,9 +325,25 @@ public class MainActivity extends ListActivity {
         }
 
 
+
     };
 
+    /**
+     * Send to server
+     */
+    public void sendMessage(View view) {
 
+
+            //Log.i(TAG, "onServicesDiscovered: service = " + gattServices.get(2).getUuid());
+
+            String originalString = "0119020712104000000000000000007E";
+            byte[] b = hexStringToByteArray(originalString);
+            gattServices.get(2).getCharacteristics().get(0).setValue(b); // call this BEFORE(!) you 'write' any stuff to the server
+            mBluetoothGatt.writeCharacteristic(mBluetoothGatt.getServices().get(2).getCharacteristics().get(0));
+            Log.i(TAG, "  write bytes ! -> " + byteArrayToHexString(b));
+
+
+    }
 
 
     /**

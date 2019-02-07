@@ -15,12 +15,22 @@
         android:layout_weight="1"
         android:text="List device bluetooth"
         android:gravity="center"
-        android:textSize="20dp"/>
+        android:textSize="20dp"
+        android:id="@+id/textHold"/>
     <ListView
         android:id="@android:id/list"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="9">
     </ListView>
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text="send to server"
+        android:gravity="center"
+        android:id="@+id/sendButton"
+        android:onClick="sendMessage"/>
 
 </LinearLayout>

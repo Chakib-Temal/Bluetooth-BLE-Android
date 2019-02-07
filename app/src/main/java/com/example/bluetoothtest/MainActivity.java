@@ -10,7 +10,6 @@ import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothGattDescriptor;
-import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
@@ -46,7 +45,7 @@ public class MainActivity extends ListActivity {
 
     private static final int REQUEST_ENABLE_BT = 1;
     // Stops scanning after 10 seconds.
-    private static final long SCAN_PERIOD = 15000;
+    private static final long SCAN_PERIOD = 7000;
     Context context;
     final int REQUEST_CODE_ASK_MULTIPLE_PERMISSIONS = 50;
     @Override
@@ -180,35 +179,58 @@ public class MainActivity extends ListActivity {
 
             System.out.println("------------------------------------------onConnectionStateChange");
 
-            if (status == 0) {
-                gatt.connect();
-            }
 
-            String intentAction;
+            //String intentAction;
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                intentAction = ACTION_GATT_CONNECTED;
+                //intentAction = ACTION_GATT_CONNECTED;
                 mConnectionState = STATE_CONNECTED;
                 Log.i(TAG, "Connected to GATT server.");
-                Log.i(TAG, "Attempting to start service discovery:" +
+                Log.i(TAG, "Attempting to start service discovery : " +
                         mBluetoothGatt.discoverServices());
 
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                intentAction = ACTION_GATT_DISCONNECTED;
+                //intentAction = ACTION_GATT_DISCONNECTED;
                 mConnectionState = STATE_DISCONNECTED;
                 Log.i(TAG, "Disconnected from GATT server.");
             }
+
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    mLeDeviceListAdapter.clear();
+                    mLeDeviceListAdapter.notifyDataSetChanged();
+                }
+            });
+
+
         }
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             super.onServicesDiscovered(gatt, status);
-            System.out.println("------------------------------------------onServicesDiscovered");
+            //System.out.println("------------------------------------------onServicesDiscovered");
 
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 System.out.println("----TAILLE--------------------" + gatt.getServices().size());
-                for (BluetoothGattService services : gatt.getServices()){
-                    System.out.println("----Services are : " + services.getType());
+                for (int i= 0 ; i < gatt.getServices().size(); i++){
+                    Log.i(TAG, "onServicesDiscovered: --------------------- : " + i);
+                    Log.i(TAG, "onServicesDiscovered: service = " + gatt.getServices().get(i).getUuid());
+
+                    for (int j=0 ; j < gatt.getServices().get(i).getCharacteristics().size(); j++){
+                        Log.i(TAG, "onServicesDiscovered: characteristic = "+i+"."+j + " :: " + gatt.getServices().get(i).getCharacteristics().get(j).getUuid());
+
+                        String originalString = "560D0F0600F0AA";
+                        byte[] b = hexStringToByteArray(originalString);
+
+                        gatt.getServices().get(i).getCharacteristics().get(j).setValue(b);
+                        mBluetoothGatt.writeCharacteristic(gatt.getServices().get(i).getCharacteristics().get(j));
+                        Log.i(TAG, "onServicesDiscovered: , write bytes?! " + byteArrayToHexString(b));
+
+                        //mBluetoothGatt.getServices().get(i).getCharacteristics().get(j).setValue(b);
+
+                    }
                 }
+
             } else {
                 Log.w(TAG, "onServicesDiscovered received: " + status);
             }
@@ -220,6 +242,8 @@ public class MainActivity extends ListActivity {
             System.out.println("------------------------------------------onCharacteristicRead");
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 System.out.println("------------------------READ-" + characteristic.toString());
+
+
 
             }
 
@@ -278,6 +302,8 @@ public class MainActivity extends ListActivity {
             System.out.println("------------------------------------------onMtuChanged");
 
         }
+
+
     };
 
 
@@ -413,4 +439,21 @@ public class MainActivity extends ListActivity {
         return true;
     }
 
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i+1), 16));
+        }
+        return data;
+    }
+
+    public static String byteArrayToHexString(final byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for(byte b : bytes){
+            sb.append(String.format("%02x", b&0xff));
+        }
+        return sb.toString();
+    }
 }

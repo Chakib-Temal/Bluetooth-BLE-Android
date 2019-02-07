@@ -186,7 +186,7 @@ public class MainActivity extends ListActivity {
 
     List<BluetoothGattService> gattServices  ;
 
-
+    BluetoothGattDescriptor descriptor;
 
     private final BluetoothGattCallback myCallBack = new BluetoothGattCallback() {
         @Override
@@ -237,7 +237,7 @@ public class MainActivity extends ListActivity {
                         if (gatt.getServices().get(i).getUuid().toString().equals("0000fff0-0000-1000-8000-00805f9b34fb")){
 
                             mBluetoothGatt.setCharacteristicNotification(gattServices.get(2).getCharacteristics().get(1), true);
-                            BluetoothGattDescriptor descriptor = gatt.getServices().get(2).getCharacteristics().get(1).getDescriptor(UUID.fromString(SampleGattAttributes.CLIENT_CHARACTERISTIC_CONFIG));
+                            descriptor = gatt.getServices().get(2).getCharacteristics().get(1).getDescriptor(UUID.fromString(SampleGattAttributes.CLIENT_CHARACTERISTIC_CONFIG));
                             descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
                             mBluetoothGatt.writeDescriptor(descriptor);
 
@@ -280,19 +280,30 @@ public class MainActivity extends ListActivity {
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             super.onCharacteristicChanged(gatt, characteristic);
 
-            byte[] msgreceived = hexStringToByteArray(characteristic.getValue().toString());
-            System.out.println("------------------------------------------onCharacteristicChanged " + msgreceived );
 
+            byte[] data = characteristic.getValue();
+            System.out.println("------------------------------------------onCharacteristicChanged " + data );
+            for (byte theByte : data)
+            {
+                System.out.println(Integer.toHexString(theByte));
+            }
 
-
-
+            mBluetoothGatt.readCharacteristic(characteristic);
+            mBluetoothGatt.readDescriptor(descriptor);
         }
+
 
         @Override
         public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
             super.onDescriptorRead(gatt, descriptor, status);
             System.out.println("------------------------------------------onDescriptorRead");
+            byte[] data = descriptor.getValue();
+            System.out.println(data);
 
+            for (byte theByte : data)
+            {
+                System.out.println(Integer.toHexString(theByte));
+            }
         }
 
         @Override
@@ -336,7 +347,7 @@ public class MainActivity extends ListActivity {
 
             //Log.i(TAG, "onServicesDiscovered: service = " + gattServices.get(2).getUuid());
 
-            String originalString = "0119020712104000000000000000007E";
+            String originalString = "41000000000000000000000000000041";
             byte[] b = hexStringToByteArray(originalString);
             gattServices.get(2).getCharacteristics().get(0).setValue(b); // call this BEFORE(!) you 'write' any stuff to the server
             mBluetoothGatt.writeCharacteristic(mBluetoothGatt.getServices().get(2).getCharacteristics().get(0));

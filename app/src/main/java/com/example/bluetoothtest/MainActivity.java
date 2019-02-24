@@ -42,6 +42,9 @@ import static android.content.ContentValues.TAG;
 
 
 public class MainActivity extends ListActivity {
+    public static String CLIENT_CHARACTERISTIC_CONFIG = "00002902-0000-1000-8000-00805f9b34fb";
+    public final int REQUEST_CODE_ASK_MULTIPLE_PERMISSIONS = 50;
+
     private Button sendButton ;
     private LinearLayout body;
     private TextView textHold;
@@ -51,11 +54,13 @@ public class MainActivity extends ListActivity {
     private boolean mScanning;
     private Handler mHandler;
 
+
+
     private static final int REQUEST_ENABLE_BT = 1;
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 7000;
-    Context context;
-    final int REQUEST_CODE_ASK_MULTIPLE_PERMISSIONS = 50;
+    private Context context;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -125,8 +130,6 @@ public class MainActivity extends ListActivity {
         Toast.makeText(MainActivity.this, device.getName(), Toast.LENGTH_SHORT).show();
         mBluetoothGatt = device.connectGatt(context, true, myCallBack);
 
-
-
     }
 
     private BluetoothAdapter.LeScanCallback mLeScanCallback = new BluetoothAdapter.LeScanCallback() {
@@ -170,22 +173,9 @@ public class MainActivity extends ListActivity {
     private int mConnectionState = STATE_DISCONNECTED;
 
     private static final int STATE_DISCONNECTED = 0;
-    private static final int STATE_CONNECTING = 1;
     private static final int STATE_CONNECTED = 2;
 
-    public final static String ACTION_GATT_CONNECTED =
-            "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
-    public final static String ACTION_GATT_DISCONNECTED =
-            "com.example.bluetooth.le.ACTION_GATT_DISCONNECTED";
-    public final static String ACTION_GATT_SERVICES_DISCOVERED =
-            "com.example.bluetooth.le.ACTION_GATT_SERVICES_DISCOVERED";
-    public final static String ACTION_DATA_AVAILABLE =
-            "com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
-    public final static String EXTRA_DATA =
-            "com.example.bluetooth.le.EXTRA_DATA";
-
     List<BluetoothGattService> gattServices  ;
-
     BluetoothGattDescriptor descriptor;
 
     private final BluetoothGattCallback myCallBack = new BluetoothGattCallback() {
@@ -195,10 +185,7 @@ public class MainActivity extends ListActivity {
 
             System.out.println("------------------------------------------onConnectionStateChange");
 
-
-            //String intentAction;
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                //intentAction = ACTION_GATT_CONNECTED;
                 mConnectionState = STATE_CONNECTED;
                 Log.i(TAG, "Connected to GATT server.");
                 Log.i(TAG, "Attempting to start service discovery : " +
@@ -229,25 +216,22 @@ public class MainActivity extends ListActivity {
 
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 for (int i= 0 ; i < gatt.getServices().size(); i++){
+
                     Log.i(TAG, "onServicesDiscovered: --------------------- : " + i);
                     Log.i(TAG, "onServicesDiscovered: service = " + gatt.getServices().get(i).getUuid());
+
                     for (int j=0 ; j < gatt.getServices().get(i).getCharacteristics().size(); j++){
                         Log.i(TAG, "onServicesDiscovered: characteristic = "+i+"."+j + " :: " + gatt.getServices().get(i).getCharacteristics().get(j).getUuid());
 
                         if (gatt.getServices().get(i).getUuid().toString().equals("0000fff0-0000-1000-8000-00805f9b34fb")){
 
                             mBluetoothGatt.setCharacteristicNotification(gattServices.get(2).getCharacteristics().get(1), true);
-                            descriptor = gatt.getServices().get(2).getCharacteristics().get(1).getDescriptor(UUID.fromString(SampleGattAttributes.CLIENT_CHARACTERISTIC_CONFIG));
+                            descriptor = gatt.getServices().get(2).getCharacteristics().get(1).getDescriptor(UUID.fromString(CLIENT_CHARACTERISTIC_CONFIG));
                             descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
                             mBluetoothGatt.writeDescriptor(descriptor);
-
                         }
-
                     }
                 }
-
-
-
             } else {
                 Log.w(TAG, "onServicesDiscovered received: " + status);
             }
@@ -259,11 +243,7 @@ public class MainActivity extends ListActivity {
             System.out.println("------------------------------------------onCharacteristicRead");
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 System.out.println("------------------------READ-" + characteristic.toString());
-
-
-
             }
-
         }
 
         @Override
@@ -273,7 +253,6 @@ public class MainActivity extends ListActivity {
             //characteristic.setValue("test");
             //gatt.writeCharacteristic(characteristic);
             System.out.println("------------------------------------------onCharacteristicWrite");
-
         }
 
         @Override
@@ -335,8 +314,6 @@ public class MainActivity extends ListActivity {
 
         }
 
-
-
     };
 
     /**
@@ -344,18 +321,35 @@ public class MainActivity extends ListActivity {
      */
     public void sendMessage(View view) {
 
-
-            //Log.i(TAG, "onServicesDiscovered: service = " + gattServices.get(2).getUuid());
-
             String originalString = "41000000000000000000000000000041";
             byte[] b = hexStringToByteArray(originalString);
             gattServices.get(2).getCharacteristics().get(0).setValue(b); // call this BEFORE(!) you 'write' any stuff to the server
             mBluetoothGatt.writeCharacteristic(mBluetoothGatt.getServices().get(2).getCharacteristics().get(0));
             Log.i(TAG, "  write bytes ! -> " + byteArrayToHexString(b));
 
-
     }
 
+    /**
+     * Static Methods
+     */
+
+    public static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                    + Character.digit(s.charAt(i+1), 16));
+        }
+        return data;
+    }
+
+    public static String byteArrayToHexString(final byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for(byte b : bytes){
+            sb.append(String.format("%02x", b&0xff));
+        }
+        return sb.toString();
+    }
 
     /**
      * class adapter
@@ -487,21 +481,4 @@ public class MainActivity extends ListActivity {
         return true;
     }
 
-    public static byte[] hexStringToByteArray(String s) {
-        int len = s.length();
-        byte[] data = new byte[len / 2];
-        for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
-                    + Character.digit(s.charAt(i+1), 16));
-        }
-        return data;
-    }
-
-    public static String byteArrayToHexString(final byte[] bytes) {
-        StringBuilder sb = new StringBuilder();
-        for(byte b : bytes){
-            sb.append(String.format("%02x", b&0xff));
-        }
-        return sb.toString();
-    }
 }
